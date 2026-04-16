@@ -1,40 +1,266 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ashwin vs PDogg: Flappy Chase</title>
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background: #111;
-            font-family: 'Arial Black', sans-serif;
-            touch-action: manipulation;
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Ashwin vs PDogg: Flappy Chase</title>
+
+<style>
+body {
+    margin: 0;
+    overflow: hidden;
+    background: #111;
+    font-family: 'Arial Black', sans-serif;
+}
+
+#game-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    max-width: 600px;
+    margin: 0 auto;
+    background: #87CEEB;
+    overflow: hidden;
+}
+
+canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none; /* 🔥 important for mobile */
+}
+
+.overlay {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+}
+
+.hidden {
+    display: none !important;
+    pointer-events: none;
+}
+
+button {
+    padding: 15px 30px;
+    margin: 10px;
+    font-size: 18px;
+    background: #ffcc00;
+    border: none;
+    border-radius: 30px;
+}
+
+#ui {
+    position: absolute;
+    top: 20px;
+    width: 100%;
+    text-align: center;
+    font-size: 40px;
+    color: white;
+    text-shadow: 2px 2px black;
+    z-index: 5;
+}
+</style>
+</head>
+
+<body>
+
+<div id="game-container">
+
+<!-- 🎵 AUDIO -->
+<audio id="bgMusic" loop>
+    <source src="jaunty.mp3" type="audio/mpeg">
+</audio>
+
+<audio id="outSound">
+    <source src="out.m4a" type="audio/mp4">
+    <source src="out.mp3" type="audio/mpeg">
+</audio>
+
+<div id="start-screen" class="overlay">
+    <h1>CRICKET FLAPPY</h1>
+    <button onclick="initGame('ashwin')">Ashwin</button>
+    <button onclick="initGame('pdogg')">PDogg</button>
+</div>
+
+<div id="ui" class="hidden">0</div>
+
+<div id="game-over" class="overlay hidden">
+    <h2>OUT!</h2>
+    <p id="final-score"></p>
+    <button onclick="resetToMenu()">Menu</button>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const container = document.getElementById('game-container');
+
+const music = document.getElementById('bgMusic');
+const outSound = document.getElementById('outSound');
+
+let gameActive = false, score = 0, frame = 0, pipes = [], mode = '';
+
+const player = {
+    x: 50, y: 200, w: 60, h: 70,
+    velocity: 0, gravity: 0.25, jump: -6,
+    img: new Image()
+};
+
+const imgAshwin = 'pdogg2.jpeg';
+const imgPDogg = 'pdogg1.jpeg';
+
+function resize() {
+    canvas.width = container.offsetWidth;
+    canvas.height = container.offsetHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+
+// 🔥 AUDIO UNLOCK (CRUCIAL FOR MOBILE)
+function unlockAudio() {
+    [music, outSound].forEach(a => {
+        a.muted = true;
+        a.play().then(() => {
+            a.pause();
+            a.currentTime = 0;
+            a.muted = false;
+        }).catch(()=>{});
+    });
+}
+
+function initGame(selectedMode) {
+    mode = selectedMode;
+
+    unlockAudio(); // 🔥 mobile fix
+
+    music.currentTime = 0;
+    music.play().catch(()=>{});
+    music.playbackRate = mode === 'pdogg' ? 1.1 : 1;
+
+    player.img.src = mode === 'ashwin' ? imgAshwin : imgPDogg;
+
+    player.y = canvas.height/2;
+    player.velocity = 0;
+    score = 0;
+    pipes = [];
+    frame = 0;
+
+    document.getElementById('start-screen').classList.add('hidden');
+    document.getElementById('game-over').classList.add('hidden');
+    document.getElementById('ui').classList.remove('hidden');
+    document.getElementById('ui').innerText = "0";
+
+    gameActive = true;
+    requestAnimationFrame(update);
+}
+
+function flap() {
+    if (gameActive) player.velocity = player.jump;
+}
+
+// 🔥 MOBILE + DESKTOP INPUT FIX
+container.addEventListener('touchstart', e => {
+    e.preventDefault();
+    flap();
+}, {passive:false});
+
+container.addEventListener('click', flap);
+window.addEventListener('keydown', e => { if(e.code === 'Space') flap(); });
+
+
+function createPipe() {
+    const gap = 180;
+    const top = Math.random() * (canvas.height - gap - 100) + 50;
+
+    pipes.push({
+        x: canvas.width,
+        top: top,
+        bottom: canvas.height - top - gap,
+        width: 60,
+        passed: false
+    });
+}
+
+function gameOver() {
+    gameActive = false;
+
+    music.pause();
+
+    outSound.currentTime = 0;
+    outSound.play().catch(()=>{}); // 🔥 mobile safe
+
+    document.getElementById('game-over').classList.remove('hidden');
+    document.getElementById('final-score').innerText = "Score: " + score;
+}
+
+function resetToMenu() {
+    document.getElementById('game-over').classList.add('hidden');
+    document.getElementById('start-screen').classList.remove('hidden');
+    document.getElementById('ui').classList.add('hidden');
+
+    music.pause();
+    music.currentTime = 0;
+}
+
+function drawPipe(p) {
+    ctx.fillStyle = "#8B4513";
+    ctx.fillRect(p.x, 0, p.width, p.top);
+    ctx.fillRect(p.x, canvas.height - p.bottom, p.width, p.bottom);
+}
+
+function update() {
+    if (!gameActive) return;
+
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    player.velocity += player.gravity;
+    player.y += player.velocity;
+
+    if (player.img.complete) {
+        ctx.drawImage(player.img, player.x, player.y, player.w, player.h);
+    }
+
+    if (frame % 100 === 0) createPipe();
+
+    pipes.forEach((p,i)=>{
+        p.x -= 3;
+        drawPipe(p);
+
+        if (
+            player.x < p.x + p.width &&
+            player.x + player.w > p.x &&
+            (player.y < p.top || player.y + player.h > canvas.height - p.bottom)
+        ) gameOver();
+
+        if (!p.passed && p.x + p.width < player.x) {
+            p.passed = true;
+            score++;
+            document.getElementById('ui').innerText = score;
         }
 
-        #game-container {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-            max-width: 600px;
-            margin: 0 auto;
-            background: #87CEEB;
-            overflow: hidden;
-            border-left: 2px solid #333;
-            border-right: 2px solid #333;
-        }
+        if (p.x + p.width < 0) pipes.splice(i,1);
+    });
 
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(to bottom, #87CEEB 0%, #B0E0E6 100%);
-        }
+    if (player.y > canvas.height || player.y < 0) gameOver();
 
-        .overlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
+    frame++;
+    requestAnimationFrame(update);
+}
+</script>
+
+</body>
+</html>            top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.7);
             color: white;
             display: flex;
