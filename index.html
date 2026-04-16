@@ -159,6 +159,7 @@
     let pipes = [];
     let animId = null;
     let audioUnlocked = false;
+    let smoothTilt = 0;
 
     const player = {
         x: 0, y: 0,
@@ -203,7 +204,7 @@
         player.x        = canvas.width * 0.15;
         player.y        = canvas.height / 2;
         player.velocity = 0;
-        score = 0; pipes = []; frame = 0;
+        score = 0; pipes = []; frame = 0; smoothTilt = 0;
 
         document.getElementById('start-screen').classList.add('hidden');
         document.getElementById('game-over').classList.add('hidden');
@@ -295,8 +296,9 @@
         if (player.loaded) {
             ctx.save();
             ctx.translate(player.x + player.w / 2, player.y + player.h / 2);
-            const tilt = Math.max(-30, Math.min(30, player.velocity * 4));
-            ctx.rotate(tilt * Math.PI / 180);
+            const targetTilt = Math.max(-25, Math.min(25, player.velocity * 3));
+            smoothTilt += (targetTilt - smoothTilt) * 0.08;
+            ctx.rotate(smoothTilt * Math.PI / 180);
             ctx.drawImage(player.img, -player.w / 2, -player.h / 2, player.w, player.h);
             ctx.restore();
         } else {
